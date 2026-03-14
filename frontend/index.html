@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS | AI Fleet Route Optimization</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        dark: '#030712',
+                        panel: 'rgba(17, 24, 39, 0.65)',
+                        'panel-light': 'rgba(255, 255, 255, 0.05)',
+                        neon: {
+                            cyan: '#00f0ff',
+                            purple: '#8b5cf6',
+                            pink: '#ec4899',
+                        }
+                    },
+                    animation: {
+                        'spin-slow': 'spin 3s linear infinite',
+                        'pulse-glow': 'pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
+                    },
+                    keyframes: {
+                        'pulse-glow': {
+                            '0%, 100%': { opacity: 1, boxShadow: '0 0 15px #00f0ff80' },
+                            '50%': { opacity: .7, boxShadow: '0 0 5px #00f0ff40' },
+                        },
+                        'shimmer': {
+                            '0%': { backgroundPosition: '-1000px 0' },
+                            '100%': { backgroundPosition: '1000px 0' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Three.js, Vanta & GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- MapLibre for 3D City -->
+    <link href='https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css' rel='stylesheet' />
+    <script src='https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js'></script>
+
+    <style>
+        /* Global & Custom Utilities */
+        body {
+            margin: 0;
+            overflow-x: hidden;
+            background-color: #030712;
+            color: #f9fafb;
+        }
+
+        #background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            opacity: 1;
+            /* Ensure no accidental fading */
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 99px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 240, 255, 0.3);
+        }
+
+        /* Leaflet Overrides */
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #030712 !important;
+            border-radius: 12px;
+        }
+
+        .maplibregl-popup-content {
+            background: rgba(17, 24, 39, 0.9) !important;
+            backdrop-filter: blur(10px);
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px !important;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .maplibregl-popup-tip {
+            border-top-color: rgba(17, 24, 39, 0.9) !important;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.5s infinite linear;
+        }
+
+        @keyframes skeleton-shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        /* ── Marker Styles ──────────────────── */
+        .cab-marker {
+            cursor: pointer;
+            transition: transform 0.4s ease;
+        }
+
+        .cab-marker:hover {
+            transform: scale(1.3);
+        }
+
+        .cab-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            background: rgba(0, 0, 0, 0.6);
+            position: relative;
+            font-size: 16px;
+        }
+
+        .cab-ring {
+            position: absolute;
+            inset: -6px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            opacity: 0.4;
+            animation: ring-pulse 1.8s ease-out infinite;
+        }
+
+        @keyframes ring-pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.4;
+            }
+
+            100% {
+                transform: scale(2.2);
+                opacity: 0;
+            }
+        }
+
+        .emp-marker {
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            position: relative;
+        }
+
+        .emp-marker:hover {
+            transform: scale(1.2);
+        }
+
+        .emp-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            position: relative;
+        }
+
+        .emp-label {
+            position: absolute;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 9px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            color: white;
+            white-space: nowrap;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 1px 4px;
+            border-radius: 4px;
+            opacity: 0.85;
+        }
+
+        .emp-sequence-badge {
+            position: absolute;
+            bottom: -12px;
+            right: -12px;
+            width: 22px;
+            height: 22px;
+            background: #0ea5e9;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 800;
+            border: 2px solid #030712;
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+            z-index: 10;
+        }
+
+        .hub-marker {
+            cursor: pointer;
+        }
+
+        .hub-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #00f0ff22, #8b5cf622);
+            border: 2px solid #00f0ff;
+            font-size: 22px;
+            box-shadow: 0 0 18px #00f0ff66, inset 0 0 12px #00f0ff22;
+            animation: hub-breathe 3s ease-in-out infinite;
+        }
+
+        @keyframes hub-breathe {
+
+            0%,
+            100% {
+                box-shadow: 0 0 18px #00f0ff66, inset 0 0 12px #00f0ff22;
+            }
+
+            50% {
+                box-shadow: 0 0 30px #00f0ffaa, inset 0 0 20px #00f0ff44;
+            }
+        }
+
+        .hub-label {
+            text-align: center;
+            margin-top: 4px;
+            font-size: 9px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 800;
+            color: #00f0ff;
+            letter-spacing: 1px;
+            text-shadow: 0 0 8px #00f0ff;
+        }
+
+        /* Accordion */
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .accordion-active .accordion-content {
+            max-height: 200px;
+        }
+
+        .accordion-active .ph-caret-down {
+            transform: rotate(180deg);
+        }
+
+        /* Toasts */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            transform: translateX(120%);
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        /* Input Styling */
+        .input-group {
+            position: relative;
+        }
+
+        .glass-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: #00f0ff;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+        }
+
+        .input-group label {
+            transition: all 0.3s ease;
+        }
+
+        .glass-input:focus+label,
+        .glass-input:not(:placeholder-shown)+label {
+            top: -10px;
+            left: 12px;
+            font-size: 10px;
+            color: #00f0ff;
+            background: #0d111b;
+            padding: 0 6px;
+            border-radius: 4px;
+        }
+
+        .btn-glow {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-glow::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(45deg, #00f0ff, #8b5cf6, #00f0ff);
+            z-index: -1;
+            filter: blur(10px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: inherit;
+        }
+
+        .btn-glow:hover::after {
+            opacity: 0.4;
+        }
+    </style>
+</head>
+
+<body class="antialiased selection:bg-neon-cyan selection:text-dark min-h-screen flex flex-col">
+
+    <!-- 3D Animated Background -->
+    <div id="background"></div>
+
+    <!-- Top Navigation -->
+    <header class="glass-panel sticky top-0 z-50 px-6 py-4 flex justify-between items-center gs-reveal">
+        <div class="flex items-center gap-3">
+            <div
+                class="relative w-8 h-8 rounded-lg bg-gradient-to-tr from-neon-cyan to-neon-purple flex items-center justify-center animate-pulse-glow">
+                <i class="ph-bold ph-planet text-white text-xl"></i>
+            </div>
+            <h1
+                class="font-display font-bold text-2xl tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                NEXUS <span class="text-neon-cyan font-light">Fleet</span>
+            </h1>
+        </div>
+
+        <nav class="hidden md:flex gap-8 font-medium text-sm text-gray-400">
+            <a href="/dashboard" class="hover:text-white transition-colors relative group">Dashboard
+                <span
+                    class="absolute -bottom-2 left-0 w-0 h-[2px] bg-neon-cyan transition-all group-hover:w-full duration-300"></span>
+            </a>
+            <a href="/" class="text-white relative group">Telemetry
+                <span
+                    class="absolute -bottom-2 left-0 w-full h-[2px] bg-neon-cyan drop-shadow-[0_0_8px_rgba(0,240,255,0.8)]"></span>
+            </a>
+            <a href="/fleetmgt" class="hover:text-white transition-colors relative group">Fleet Mgt
+                <span
+                    class="absolute -bottom-2 left-0 w-0 h-[2px] bg-neon-cyan transition-all group-hover:w-full duration-300"></span>
+            </a>
+        </nav>
+
+        <!-- Removed login/notification icons as requested -->
+    </header>
+
+    <!-- Main Dashboard Layout -->
+    <main
+        class="flex-1 max-w-[1800px] w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10 gs-reveal lg:h-[85vh]">
+        <!-- Left Panel: Controls -->
+        <section class="lg:col-span-3 flex flex-col gap-6 gs-reveal h-full">
+            <div class="glass-panel rounded-2xl p-6 flex-1 flex flex-col h-full">
+                <div class="flex items-center gap-2 mb-6">
+                    <i class="ph-fill ph-cpu text-neon-cyan text-xl"></i>
+                    <h2 class="font-display font-semibold text-lg">AI Parameters</h2>
+                </div>
+
+                <form id="opt-form" class="flex flex-col gap-6 flex-1">
+
+                    <div class="input-group">
+                        <input type="number" id="n_a"
+                            class="glass-input w-full px-4 py-3 rounded-xl placeholder-transparent peer"
+                            placeholder="Type-A Cabs" value="3" required min="0">
+                        <label
+                            class="absolute left-4 top-3 text-gray-400 transition-all pointer-events-none text-sm peer-focus:text-neon-cyan">Type-A
+                            Cabs (4 seats)</label>
+                    </div>
+
+                    <div class="input-group">
+                        <input type="number" id="n_b"
+                            class="glass-input w-full px-4 py-3 rounded-xl placeholder-transparent peer"
+                            placeholder="Type-B Cabs" value="2" required min="0">
+                        <label
+                            class="absolute left-4 top-3 text-gray-400 transition-all pointer-events-none text-sm peer-focus:text-neon-cyan">Type-B
+                            Cabs (8 seats)</label>
+                    </div>
+
+                    <div class="input-group">
+                        <input type="number" id="employees_input"
+                            class="glass-input w-full px-4 py-3 rounded-xl placeholder-transparent peer"
+                            placeholder="Employees" value="20" required min="1">
+                        <label
+                            class="absolute left-4 top-3 text-gray-400 transition-all pointer-events-none text-sm peer-focus:text-neon-cyan">Total
+                            Employees</label>
+                    </div>
+
+                    <!-- Custom Range Slider -->
+                    <div class="mt-2">
+                        <div class="flex justify-between text-xs text-gray-400 mb-2">
+                            <span>Optimization Heuristic</span>
+                            <span class="text-neon-purple font-medium" id="heur-val">Balanced</span>
+                        </div>
+                        <input type="range" min="1" max="3" value="2" class="w-full accent-neon-purple cursor-pointer"
+                            oninput="updateHeuristic(this.value)">
+                        <div class="flex justify-between text-[10px] text-gray-500 mt-1">
+                            <span>Speed</span>
+                            <span>Quality</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-auto pt-6">
+                        <button type="submit" id="submit-btn"
+                            class="group relative w-full glass-panel bg-white/5 hover:bg-white/10 text-white font-medium py-4 rounded-xl transition-all overflow-hidden btn-glow">
+                            <!-- Gradient overlay -->
+                            <div
+                                class="absolute inset-0 bg-gradient-to-r from-neon-cyan/20 to-neon-purple/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                            </div>
+
+                            <div class="relative flex items-center justify-center gap-2" id="btn-content">
+                                <i class="ph-bold ph-lightning text-neon-cyan"></i>
+                                <span>Initialize Routing</span>
+                            </div>
+
+                            <div class="hidden absolute inset-0 flex items-center justify-center gap-2"
+                                id="btn-loading">
+                                <i class="ph-bold ph-spinner-gap animate-spin text-neon-cyan text-xl"></i>
+                                <span class="text-sm">Computing Matrix...</span>
+                            </div>
+
+                            <div class="hidden absolute inset-0 flex items-center justify-center gap-2 bg-green-500/20 text-green-400"
+                                id="btn-success">
+                                <i class="ph-bold ph-check-circle text-xl"></i>
+                                <span>Optimized</span>
+                            </div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Optimization Gains Panel -->
+            <div class="glass-panel rounded-2xl p-6 flex flex-col gap-4 hidden" id="optimization-gains-panel">
+                <div class="flex items-center gap-2 mb-2">
+                    <i class="ph-fill ph-chart-line-up text-neon-cyan text-xl"></i>
+                    <h2 class="font-display font-semibold text-lg">Optimization Gains</h2>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="p-3 rounded-xl bg-white/5 border border-white/5">
+                        <div class="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Before Optimization</div>
+                        <div class="text-xl font-bold text-gray-300"><span id="dist-before">0</span> km</div>
+                    </div>
+
+                    <div class="p-3 rounded-xl bg-neon-cyan/10 border border-neon-cyan/20">
+                        <div class="text-[10px] text-neon-cyan uppercase tracking-wider mb-1">After AI Optimization
+                        </div>
+                        <div class="text-xl font-bold text-white"><span id="dist-after" class="text-neon-cyan">0</span>
+                            km</div>
+                    </div>
+                </div>
+
+                <div
+                    class="mt-2 flex items-center justify-between p-3 rounded-xl bg-green-500/10 border border-green-500/20">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-green-400 uppercase tracking-wider font-bold">Total Savings</span>
+                        <span class="text-2xl font-black text-white"><span id="savings-pct">0</span>%</span>
+                    </div>
+                    <i class="ph-bold ph-trend-up text-3xl text-green-400 opacity-50"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Center Panel: Visualization -->
+        <section class="lg:col-span-6 flex flex-col gap-6 gs-reveal h-full">
+            <div
+                class="glass-panel rounded-2xl p-2 flex-1 relative flex flex-col border-neon-cyan/30 shadow-[0_0_30px_rgba(0,240,255,0.05)]">
+
+                <div class="absolute top-4 left-6 z-20 pointer-events-none">
+                    <h2 class="font-display font-semibold text-lg flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Live Telemetry
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-1">Spatial Node Distribution</p>
+                </div>
+
+                <div class="absolute top-4 right-6 z-20 flex gap-4 text-xs">
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-neon-cyan"></span> Hub</div>
+                    <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-400"></span> Employee
+                    </div>
+                </div>
+
+                <!-- Interactive Map Area -->
+                <div id="map-container"
+                    class="flex-1 rounded-xl w-full h-full border border-white/5 relative overflow-hidden">
+                    <div id="map"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Panel: Results -->
+        <section class="lg:col-span-3 flex flex-col gap-6 gs-reveal h-full">
+
+            <!-- Total Distance Summary -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group tilt-card">
+                <div
+                    class="absolute -right-10 -top-10 w-32 h-32 bg-neon-purple/20 rounded-full blur-3xl group-hover:bg-neon-purple/30 transition">
+                </div>
+                <h3 class="text-sm text-gray-400 uppercase tracking-wider mb-4">Total Distance</h3>
+                <div class="flex items-end gap-2">
+                    <span class="font-display font-bold text-5xl text-white counter" id="total-dist">0</span>
+                    <span class="text-neon-purple font-medium mb-1">km</span>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-white/10 flex justify-between items-center">
+                    <span class="text-sm text-gray-400">Avg per Vehicle</span>
+                    <div class="flex items-center gap-1">
+                        <i class="ph-bold ph-trend-down text-green-400"></i>
+                        <span class="font-bold text-white"><span class="counter" id="avg-dist">0</span> km</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sustainability Intelligence Card -->
+            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden group">
+                <div class="flex items-center gap-2 mb-4">
+                    <i class="ph-fill ph-leaf text-green-400 text-xl"></i>
+                    <h3 class="font-display font-semibold text-lg">Sustainability Intel</h3>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mt-4">
+                    <div class="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col">
+                        <i class="ph ph-tree text-green-400 text-lg mb-1"></i>
+                        <span class="text-[10px] text-gray-400">Tree equiv.</span>
+                        <span class="text-sm font-bold text-white" id="tree-equiv">0</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col">
+                        <i class="ph ph-gas-can text-neon-purple text-lg mb-1"></i>
+                        <span class="text-[10px] text-gray-400">Fuel Saved</span>
+                        <span class="text-sm font-bold text-white"><span id="fuel-saved">0</span>L</span>
+                    </div>
+                    <div class="p-3 rounded-xl bg-white/5 border border-white/5 flex flex-col">
+                        <i class="ph ph-wallet text-neon-cyan text-lg mb-1"></i>
+                        <span class="text-[10px] text-gray-400">Cost Saved</span>
+                        <span class="text-sm font-bold text-white">₹<span id="cost-saved">0</span></span>
+                    </div>
+                    <div
+                        class="p-3 rounded-xl bg-neon-cyan/5 border border-neon-cyan/10 flex flex-col justify-center items-center">
+                        <span class="text-[9px] text-neon-cyan font-black uppercase tracking-tighter">Carbon
+                            Credit</span>
+                        <span class="text-xs font-bold text-white">V1.02-α</span>
+                    </div>
+                </div>
+
+                <div class="mt-4 p-3 rounded-xl bg-green-500/10 border border-green-500/10 flex items-center gap-3">
+                    <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                    <span class="text-[10px] text-green-300 font-medium tracking-tight">AI routing reduced carbon
+                        footprint by <span id="co2-total-saved">0</span>kg today.</span>
+                </div>
+            </div>
+
+            <!-- Route Details (Skeleton initially) -->
+            <div class="glass-panel rounded-2xl p-6 flex-1 flex flex-col overflow-hidden">
+                <h3 class="font-display font-semibold text-lg mb-4">Route Assignments</h3>
+
+                <!-- Scrollable Area -->
+                <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-3" id="routes-container">
+
+                    <!-- Empty/Idle State -->
+                    <div id="empty-state"
+                        class="flex flex-col items-center justify-center h-full text-gray-500 opacity-60">
+                        <i class="ph-duotone ph-map-trifold text-5xl mb-3"></i>
+                        <p class="text-sm text-center">Awaiting parameters to<br>compute optimal vectors.</p>
+                    </div>
+
+                    <!-- Skeletons (Hidden) -->
+                    <div id="skeletons" class="hidden flex-col gap-3">
+                        <div class="h-14 rounded-xl skeleton w-full"></div>
+                        <div class="h-14 rounded-xl skeleton w-full"></div>
+                        <div class="h-14 rounded-xl skeleton w-full"></div>
+                        <div class="h-14 rounded-xl skeleton w-full"></div>
+                    </div>
+
+                    <!-- Dynamic Content inserted here -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toasts container -->
+    <div id="toast-container"></div>
+
+    <script>
+        // ==========================================
+        // 1. VANTA.JS NEURAL NETWORK BACKGROUND
+        // ==========================================
+        const init3DBackground = () => {
+            VANTA.NET({
+                el: "#background",
+                mouseControls: true,
+                touchControls: true,
+                gyroControls: false,
+                minHeight: 200.00,
+                minWidth: 200.00,
+                scale: 1.00,
+                scaleMobile: 1.00,
+                color: 0x00f0ff,
+                backgroundColor: 0x030712,
+                points: 15.00,
+                maxDistance: 20.00,
+                spacing: 20.00,
+                showDots: true
+            });
+        };
+
+        // ==========================================
+        // 2. UI UTILITIES
+        // ==========================================
+        const showToast = (message, type = 'success') => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const icon = type === 'success' ? '<i class="ph-fill ph-check-circle text-green-400"></i>' : '<i class="ph-fill ph-warning text-red-400"></i>';
+            const border = type === 'success' ? 'border-green-500/30' : 'border-red-500/30';
+            toast.className = `glass-panel px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 border ${border} toast`;
+            toast.innerHTML = `${icon} <span class="text-sm font-medium text-white">${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 500); }, 3000);
+        };
+
+        const updateHeuristic = (val) => {
+            const labels = ["Fastest", "Balanced", "Highest Quality"];
+            document.getElementById('heur-val').innerText = labels[val - 1];
+        };
+
+        window.toggleAccordion = (element) => {
+            const parent = element.parentElement;
+            const wasActive = parent.classList.contains('accordion-active');
+            document.querySelectorAll('.route-card-gen').forEach(el => el.classList.remove('accordion-active'));
+            if (!wasActive) parent.classList.add('accordion-active');
+        };
+
+        // ==========================================
+        // 3. MAPLIBRE 3D VISUALIZATION
+        // ==========================================
+        let map;
+        let cabMarkers = {};
+        let routeSources = [];
+        let clusterSources = [];
+        let employeeMarkers = [];
+        let dashOffset = 0;
+
+        const animatePulse = () => {
+            dashOffset -= 0.02;
+            routeSources.forEach(s => {
+                const pulseLayerId = `${s}-pulse`;
+                if (map.getLayer(pulseLayerId)) {
+                    map.setPaintProperty(pulseLayerId, 'line-dasharray-offset', dashOffset);
+                }
+            });
+            requestAnimationFrame(animatePulse);
+        };
+
+        const MAP_CENTER = [80.2707, 13.0827]; // [lng, lat] for MapLibre
+        const COORD_SCALE = 0.005;
+        const SHIFTS = ['09:00 AM', '10:00 AM', '06:00 PM'];
+
+        const initMap = () => {
+            map = new maplibregl.Map({
+                container: 'map',
+                style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+                center: MAP_CENTER,
+                zoom: 13,
+                pitch: 45,
+                bearing: -17.6,
+                antialias: true
+            });
+            map.on('load', () => {
+                animatePulse();
+                addHubMarker();
+            });
+        };
+
+        let hubMarker = null;
+
+        const addHubMarker = () => {
+            if (hubMarker) hubMarker.remove();
+            const el = document.createElement('div');
+            el.className = 'hub-marker';
+            el.innerHTML = `
+                <div class="hub-inner">🏢</div>
+                <div class="hub-label">HUB</div>
+            `;
+            hubMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
+                .setLngLat(MAP_CENTER)
+                .setPopup(new maplibregl.Popup({ offset: 10 }).setHTML('<b>Fleet Hub</b><br>AI Operations Center'))
+                .addTo(map);
+        };
+
+        const addEmployeeMarker = (lat, lng, id, shift) => {
+            const el = document.createElement('div');
+            el.className = 'emp-marker';
+            el.innerHTML = `
+                <div class="emp-inner">
+                    <div class="emp-label">${id}</div>
+                    📍
+                </div>
+            `;
+            const marker = new maplibregl.Marker({ element: el })
+                .setLngLat([lng, lat])
+                .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML(`<b>Employee #${id}</b><br>Shift: ${shift}`));
+            // .addTo(map); // hidden per user request to focus on moving cabs
+
+            employeeMarkers.push({ id, lat, lng, shift, marker, element: el });
+        };
+
+        const updateCabPosition = (cabId, lat, lng, color) => {
+            if (!cabMarkers[cabId]) {
+                const el = document.createElement('div');
+                el.className = 'cab-marker';
+                el.style.color = color;
+                el.innerHTML = `
+                    <div class="cab-inner" style="border-color:${color}; color:${color}; box-shadow: 0 0 12px ${color}88">
+                        🚕
+                        <div class="cab-ring" style="border-color:${color}"></div>
+                    </div>
+                `;
+                cabMarkers[cabId] = new maplibregl.Marker({ element: el, anchor: 'center' })
+                    .setLngLat([lng, lat])
+                    .setPopup(new maplibregl.Popup({ offset: 20 }).setHTML(`<b>${cabId}</b><br>En Route 🚕`))
+                    .addTo(map);
+            } else {
+                cabMarkers[cabId].setLngLat([lng, lat]);
+            }
+        };
+
+        const animateCab = (cabId, path, color, duration = 10000) => {
+            let start = null;
+            const step = (timestamp) => {
+                if (!start) start = timestamp;
+                const progress = (timestamp - start) / duration;
+                if (progress < 1) {
+                    const idx = Math.floor(progress * (path.length - 1));
+                    const nextIdx = Math.min(idx + 1, path.length - 1);
+                    const subProgress = (progress * (path.length - 1)) - idx;
+                    const lat = path[idx][0] + (path[nextIdx][0] - path[idx][0]) * subProgress;
+                    const lng = path[idx][1] + (path[nextIdx][1] - path[idx][1]) * subProgress;
+                    updateCabPosition(cabId, lat, lng, color);
+                    requestAnimationFrame(step);
+                } else {
+                    updateCabPosition(cabId, path[path.length - 1][0], path[path.length - 1][1], color);
+                }
+            };
+            requestAnimationFrame(step);
+        };
+
+        // ==========================================
+        // OSRM Real-Road Routing Engine
+        // ==========================================
+        const fetchRoadRoute = async (waypoints) => {
+            // waypoints: array of [lat, lng] pairs
+            // OSRM expects lng,lat format
+            const coords = waypoints.map(p => `${p[0]},${p[1]}`).join(';');
+            const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`;
+
+            // AbortController or Promise.race for strict 2s timeout
+            const timeoutSignal = new Promise((_, reject) => setTimeout(() => reject(new Error('OSRM Timeout')), 2000));
+
+            try {
+                const res = await Promise.race([fetch(url), timeoutSignal]);
+                const data = await res.json();
+                if (data.code !== 'Ok' || !data.routes || !data.routes[0]) return null;
+                // GeoJSON coordinates are [lng, lat]
+                return {
+                    coords: data.routes[0].geometry.coordinates,  // [[lng, lat], ...]
+                    distance: parseFloat((data.routes[0].distance / 1000).toFixed(1)),
+                    duration: Math.round(data.routes[0].duration / 60)
+                };
+            } catch (e) {
+                console.warn('OSRM error/timeout, falling back to straight line:', e.message);
+                return null;
+            }
+        };
+
+        const drawAnimatedRoute = (lngLatPoints, color, id) => {
+            const sourceId = `route-${id}`;
+            map.addSource(sourceId, {
+                'type': 'geojson',
+                'data': {
+                    'type': 'Feature',
+                    'geometry': { 'type': 'LineString', 'coordinates': lngLatPoints }
+                }
+            });
+
+            // Layer 1: Outer Atmosphere (Wide, Blur)
+            map.addLayer({
+                'id': `${sourceId}-outer`,
+                'type': 'line',
+                'source': sourceId,
+                'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                'paint': {
+                    'line-color': color,
+                    'line-width': 12,
+                    'line-opacity': 0.1,
+                    'line-blur': 6
+                }
+            });
+
+            // Layer 2: Inner Glow (Medium, Blur)
+            map.addLayer({
+                'id': `${sourceId}-inner`,
+                'type': 'line',
+                'source': sourceId,
+                'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                'paint': {
+                    'line-color': color,
+                    'line-width': 6,
+                    'line-opacity': 0.4,
+                    'line-blur': 2
+                }
+            });
+
+            // Layer 3: High-Energy Core (Thin, Solid)
+            map.addLayer({
+                'id': `${sourceId}-core`,
+                'type': 'line',
+                'source': sourceId,
+                'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                'paint': {
+                    'line-color': '#fff',
+                    'line-width': 1.5,
+                    'line-opacity': 0.8
+                }
+            });
+
+            // Layer 4: Scanning Energy Pulse (Dash-array)
+            map.addLayer({
+                'id': `${sourceId}-pulse`,
+                'type': 'line',
+                'source': sourceId,
+                'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                'paint': {
+                    'line-color': '#fff',
+                    'line-width': 3,
+                    'line-opacity': 0.6,
+                    'line-dasharray': [0.5, 2]
+                }
+            });
+
+            routeSources.push(sourceId);
+        };
+
+        const clearMap = () => {
+            routeSources.forEach(s => {
+                [`${s}-outer`, `${s}-inner`, `${s}-core`, `${s}-pulse`].forEach(layerId => {
+                    if (map.getLayer(layerId)) map.removeLayer(layerId);
+                });
+                if (map.getSource(s)) map.removeSource(s);
+            });
+            clusterSources.forEach(s => {
+                const layerId = `${s}-layer`;
+                const strokeId = `${s}-stroke`;
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getLayer(strokeId)) map.removeLayer(strokeId);
+                if (map.getSource(s)) map.removeSource(s);
+            });
+            employeeMarkers.forEach(m => m.marker.remove());
+            Object.values(cabMarkers).forEach(m => m.remove());
+            // keep hub marker — it's always present
+
+            routeSources = [];
+            clusterSources = [];
+            employeeMarkers = [];
+            cabMarkers = {};
+        };
+
+        const drawCluster = (clusterInfo, color, id) => {
+            if (!clusterInfo) return;
+            const sourceId = `cluster-${id}`;
+
+            // Convert radius from km to approximate pixels or use a fixed visual size
+            // MapLibre's circle-radius is in pixels. 
+            // We'll use a visual radius that scales dynamically.
+            const baseVisualRadius = Math.max(80, clusterInfo.radius_km * 50);
+
+            map.addSource(sourceId, {
+                'type': 'geojson',
+                'data': {
+                    'type': 'Feature',
+                    'geometry': {
+                        'type': 'Point',
+                        'coordinates': [clusterInfo.centroid_lng, clusterInfo.centroid_lat]
+                    }
+                }
+            });
+
+            // Glowing fill
+            map.addLayer({
+                'id': `${sourceId}-layer`,
+                'type': 'circle',
+                'source': sourceId,
+                'paint': {
+                    'circle-radius': baseVisualRadius,
+                    'circle-color': color,
+                    'circle-opacity': 0.15,
+                    'circle-blur': 0.5
+                }
+            }); // Draw below 3D buildings
+
+            // Stroke/Border
+            map.addLayer({
+                'id': `${sourceId}-stroke`,
+                'type': 'circle',
+                'source': sourceId,
+                'paint': {
+                    'circle-radius': baseVisualRadius,
+                    'circle-color': 'transparent',
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': color,
+                    'circle-stroke-opacity': 0.8
+                }
+            });
+
+            clusterSources.push(sourceId);
+        };
+
+        const generateNodesOnly = (numEmps) => {
+            for (let i = 1; i <= numEmps; i++) {
+                // MAP_CENTER is [lng, lat]
+                const lng = MAP_CENTER[0] + (Math.random() - 0.5) * 0.05;
+                const lat = MAP_CENTER[1] + (Math.random() - 0.5) * 0.05;
+                const shift = SHIFTS[Math.floor(Math.random() * SHIFTS.length)];
+                addEmployeeMarker(lat, lng, i, shift);
+            }
+        };
+
+        // ==========================================
+        // 4. MAIN ORCHESTRATOR
+        // ==========================================
+        document.getElementById('opt-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            const btnContent = document.getElementById('btn-content');
+            const btnLoading = document.getElementById('btn-loading');
+            const btnSuccess = document.getElementById('btn-success');
+            const skeletons = document.getElementById('skeletons');
+            const routesContainer = document.getElementById('routes-container');
+
+            clearMap();
+            document.querySelectorAll('.route-card-gen').forEach(el => el.remove());
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) emptyState.classList.add('hidden');
+
+            btn.disabled = true;
+            btnContent.classList.add('hidden');
+            btnLoading.classList.remove('hidden');
+            skeletons.classList.remove('hidden');
+            skeletons.classList.add('flex');
+
+            const n_a = parseInt(document.getElementById('n_a').value);
+            const n_b = parseInt(document.getElementById('n_b').value);
+            const empsCount = parseInt(document.getElementById('employees_input').value);
+
+            generateNodesOnly(empsCount);
+
+            try {
+                const response = await fetch("/api/v1/vrp/optimize", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        n_a: n_a,
+                        n_b: n_b,
+                        office_lat: MAP_CENTER[1],
+                        office_lng: MAP_CENTER[0],
+                        employees: employeeMarkers.map(m => ({
+                            id: m.id,
+                            lat: m.lat,
+                            lng: m.lng,
+                            shift_time: m.shift
+                        }))
+                    })
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || "Optimization failed");
+
+                const colors = ['#00f0ff', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b', '#3b82f6'];
+                let totalCO2 = 0;
+                let aggregateRoadDistance = 0;
+
+                // Helper for Manhattan distance (returns km)
+                const manhattan_distance = (lat1, lon1, lat2, lon2) => {
+                    const lat_km = Math.abs(lat1 - lat2) * 111;
+                    const lon_km = Math.abs(lon1 - lon2) * 111 * Math.cos(((lat1 + lat2) / 2) * (Math.PI / 180));
+                    return lat_km + lon_km;
+                };
+
+                // Calculate unoptimized distance (Before Optimization)
+                // Formula: sum(manhattan(hub, emp) * 2) - representing individual trips back and forth
+                let unoptimizedDist = 0;
+                employeeMarkers.forEach(m => {
+                    const dist = manhattan_distance(MAP_CENTER[1], MAP_CENTER[0], m.lat, m.lng);
+                    unoptimizedDist += dist * 2;
+                });
+                unoptimizedDist = parseFloat(unoptimizedDist.toFixed(1));
+
+                document.getElementById('optimization-gains-panel').classList.remove('hidden');
+
+                // We use Promise.all to wait for all OSRM fetches before updating the final Total Distance
+                const drawTasks = data.assignments.map(async (assign, i) => {
+                    if (!assign.stops || assign.stops.length === 0) return;
+
+                    const color = colors[i % colors.length];
+                    const cabId = `CAB-${assign.cab_id}`;
+
+                    // The old endpoint returned co2_saved. VRP doesn't currently, so we'll mock it for UI
+                    const co2_saved = assign.co2_saved || Math.round(assign.distance_km * 0.15 * 10) / 10;
+                    totalCO2 += co2_saved;
+
+                    // Removed drawCluster logic
+
+                    const markerColor = colors[i % colors.length];
+                    // Update employee markers with sequence numbers
+                    assign.stops.forEach((stop, index) => {
+                        if (stop.employee_id) {
+                            const markerObj = employeeMarkers.find(m => m.id === stop.employee_id);
+                            if (markerObj && markerObj.element) {
+                                // Add sequence badge
+                                const badge = document.createElement('div');
+                                badge.className = 'emp-sequence-badge';
+                                badge.style.backgroundColor = color;
+                                badge.style.boxShadow = `0 0 10px ${color}88`;
+                                badge.innerText = index + 1;
+                                markerObj.element.appendChild(badge);
+
+                                // Color the employee inner ring to match cab
+                                const inner = markerObj.element.querySelector('.emp-inner');
+                                if (inner) {
+                                    inner.style.borderColor = color;
+                                    inner.style.boxShadow = `inset 0 0 8px ${color}44`;
+                                }
+                            }
+                        }
+                    });
+
+                    // Build waypoints: hub → each stop
+                    const hubLatLng = MAP_CENTER; // [lng, lat]
+
+                    // VRPStop holds lat and lng. OSRM uses [lng, lat]
+                    const stopLatLngs = assign.stops.map(stop => [
+                        stop.lng, stop.lat
+                    ]);
+
+                    const waypoints = [hubLatLng, ...stopLatLngs];
+
+                    // Try to get real road route from OSRM
+                    const roadResult = await fetchRoadRoute(waypoints);
+                    let routeLngLat;
+                    let displayDist = assign.distance_km;
+
+                    if (roadResult) {
+                        routeLngLat = roadResult.coords; // [[lng, lat], ...]
+                        displayDist = roadResult.distance;
+                        // For cab animation, convert to [lat, lng]
+                        const roadLatLng = routeLngLat.map(c => [c[1], c[0]]);
+                        animateCab(cabId, roadLatLng, color);
+                    } else {
+                        // Fallback: straight segments
+                        routeLngLat = waypoints;
+                        const roadLatLng = waypoints.map(c => [c[1], c[0]]);
+                        animateCab(cabId, roadLatLng, color);
+                    }
+
+                    drawAnimatedRoute(routeLngLat, color, assign.cab_id);
+
+                    const card = document.createElement('div');
+                    card.className = "route-card-gen glass-panel rounded-xl border border-white/5 overflow-hidden transition-all hover:border-white/20 p-4";
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center mb-3">
+                             <div class="flex items-center gap-3">
+                                <div class="w-3 h-3 rounded-full shadow-[0_0_10px_currentColor]" style="background: ${color}; color: ${color}"></div>
+                                <div class="flex flex-col">
+                                    <span class="font-bold text-white text-base leading-none">CAB ${assign.cab_id}</span>
+                                    <span class="text-[10px] text-gray-400 mt-1">Type ${assign.type} • ${assign.solver_used}</span>
+                                </div>
+                             </div>
+                             <div class="text-right">
+                                <div class="text-lg font-black text-white leading-none">${displayDist}<span class="text-[10px] ml-1 text-gray-400 uppercase tracking-wider">km</span></div>
+                                <div class="text-[10px] text-green-400 font-bold mt-1">🌱 ${co2_saved}kg saved</div>
+                             </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-white/5">
+                            <div class="flex items-center gap-2">
+                                <i class="ph ph-users text-neon-cyan text-xs"></i>
+                                <span class="text-[11px] text-gray-300">${assign.stops.length - 1} Pickups</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <i class="ph ph-clock text-neon-purple text-xs"></i>
+                                <span class="text-[11px] text-gray-300">${assign.eta_minutes.toFixed(0)} min</span>
+                            </div>
+                        </div>
+                    `;
+                    routesContainer.appendChild(card);
+                    window.aggregateRoadDistance += displayDist;
+                });
+
+                window.aggregateRoadDistance = 0;
+                await Promise.all(drawTasks);
+
+                // Force numeric update
+                const finalTotal = window.aggregateRoadDistance;
+                gsap.to('#total-dist', {
+                    innerText: finalTotal,
+                    duration: 1.5,
+                    snap: { innerText: 0.1 },
+                    onUpdate: function () {
+                        this.targets()[0].innerText = parseFloat(this.targets()[0].innerText).toFixed(1);
+                    }
+                });
+
+                // Update Optimization Gains
+                gsap.to('#dist-before', {
+                    innerText: unoptimizedDist,
+                    duration: 1.5,
+                    snap: { innerText: 0.1 },
+                    onUpdate: function () { this.targets()[0].innerText = parseFloat(this.targets()[0].innerText).toFixed(1); }
+                });
+                gsap.to('#dist-after', {
+                    innerText: finalTotal,
+                    duration: 1.5,
+                    snap: { innerText: 0.1 },
+                    onUpdate: function () { this.targets()[0].innerText = parseFloat(this.targets()[0].innerText).toFixed(1); }
+                });
+                const savingsPct = Math.max(0, Math.round(((unoptimizedDist - finalTotal) / unoptimizedDist) * 100));
+                gsap.to('#savings-pct', { innerText: savingsPct, duration: 1.5, snap: { innerText: 1 } });
+
+                // Update Sustainability Intel
+                const co2Saved = Math.max(0, (unoptimizedDist - finalTotal) * 0.19);
+                const fuelSaved = Math.max(0, (unoptimizedDist - finalTotal) / 12);
+                const treesEquiv = (co2Saved / 20).toFixed(2);
+                const costSaved = Math.round(fuelSaved * 105);
+
+                gsap.to('#co2-total-saved', {
+                    innerText: co2Saved,
+                    duration: 1.5,
+                    snap: { innerText: 0.1 },
+                    onUpdate: function () { this.targets()[0].innerText = parseFloat(this.targets()[0].innerText).toFixed(1); }
+                });
+                gsap.to('#tree-equiv', { innerText: treesEquiv, duration: 1.5, snap: { innerText: 0.01 } });
+                gsap.to('#fuel-saved', {
+                    innerText: fuelSaved,
+                    duration: 1.5,
+                    snap: { innerText: 0.1 },
+                    onUpdate: function () { this.targets()[0].innerText = parseFloat(this.targets()[0].innerText).toFixed(1); }
+                });
+                gsap.to('#cost-saved', { innerText: costSaved, duration: 1.5, snap: { innerText: 1 } });
+
+                // VRP response doesn't have average_distance directly
+                const avgDist = data.assignments.length ? (window.aggregateRoadDistance / data.assignments.length) : 0;
+                gsap.to('#avg-dist', {
+                    innerText: avgDist,
+                    duration: 1.5,
+                    snap: { innerText: 0.1 },
+                    onUpdate: function () {
+                        this.targets()[0].innerText = parseFloat(this.targets()[0].innerText).toFixed(1);
+                    }
+                });
+                showToast(`Grouped ${empsCount} employees into ${data.assignments.length} pools`);
+
+                btnLoading.classList.add('hidden');
+                btnSuccess.classList.remove('hidden');
+                skeletons.classList.add('hidden');
+
+            } catch (error) {
+                console.error("OPTIMIZATION ERROR:", error);
+                showToast(error.message, 'error');
+                btnLoading.classList.add('hidden');
+                btnContent.classList.remove('hidden');
+            }
+
+            setTimeout(() => {
+                btnSuccess.classList.add('hidden');
+                btnContent.classList.remove('hidden');
+                btn.disabled = false;
+            }, 3000);
+        });
+
+        let hotspotSources = [];
+        const fetchHotspots = async () => {
+            try {
+                const response = await fetch('/api/v1/logistics/hotspots');
+                if (!response.ok) return;
+                const data = await response.json();
+
+                hotspotSources.forEach(s => {
+                    if (map.getLayer(s)) map.removeLayer(s);
+                    if (map.getSource(s)) map.removeSource(s);
+                });
+                hotspotSources = [];
+
+                data.hotspots.forEach((spot, i) => {
+                    const id = `hotspot-${i}`;
+                    const lng = MAP_CENTER[0] + spot.y * COORD_SCALE;
+                    const lat = MAP_CENTER[1] + spot.x * COORD_SCALE;
+
+                    map.addSource(id, {
+                        'type': 'geojson',
+                        'data': {
+                            'type': 'Feature',
+                            'geometry': {
+                                'type': 'Point',
+                                'coordinates': [lng, lat]
+                            }
+                        }
+                    });
+
+                    map.addLayer({
+                        'id': id,
+                        'type': 'circle',
+                        'source': id,
+                        'paint': {
+                            'circle-radius': 20,
+                            'circle-color': '#ef4444',
+                            'circle-opacity': 0.15,
+                            'circle-stroke-width': 2,
+                            'circle-stroke-color': '#ef4444',
+                            'circle-stroke-opacity': 0.3
+                        }
+                    });
+                    hotspotSources.push(id);
+                });
+            } catch (err) { }
+        };
+
+        window.onload = () => {
+            init3DBackground();
+            initMap();
+            fetchHotspots();
+            setInterval(fetchHotspots, 20000);
+        };
+    </script>
+</body>
+
+</html>

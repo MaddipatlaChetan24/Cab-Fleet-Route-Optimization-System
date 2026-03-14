@@ -1,0 +1,395 @@
+\
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS | Fleet Management</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'], display: ['Space Grotesk', 'sans-serif'] },
+                    colors: { dark: '#030712', neon: { cyan: '#00f0ff', purple: '#8b5cf6', pink: '#ec4899' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            background-color: #030712;
+            color: #f9fafb;
+            overflow-x: hidden;
+        }
+
+        #background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .cab-node {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .cab-node:hover {
+            transform: translateY(-5px);
+            border-color: #00f0ff;
+            box-shadow: 0 10px 30px rgba(0, 240, 255, 0.1);
+        }
+
+        .cab-node i {
+            transition: all 0.3s ease;
+        }
+
+        .cab-node:hover i.ph-car,
+        .cab-node:hover i.ph-bus,
+        .cab-node:hover i.ph-car-profile {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 8px currentColor);
+        }
+
+        .status-pulse {
+            position: relative;
+        }
+
+        .status-pulse::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: inherit;
+            background: currentColor;
+            filter: blur(4px);
+            opacity: 0.5;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(0, 240, 255, 0.1);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            color: #00f0ff;
+            padding: 12px 24px;
+            border-radius: 99px;
+            font-weight: bold;
+            font-size: 14px;
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body class="antialiased min-h-screen flex flex-col">
+    <div id="background"></div>
+    <div id="toast" class="toast">Asset Registered</div>
+
+    <!-- Header -->
+    <header class="glass-panel sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div
+                class="w-8 h-8 rounded-lg bg-gradient-to-tr from-neon-cyan to-neon-purple flex items-center justify-center shadow-[0_0_15px_#00f0ff80]">
+                <i class="ph-bold ph-planet text-white text-xl"></i>
+            </div>
+            <h1
+                class="font-display font-bold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                NEXUS <span class="text-neon-cyan font-light">Fleet</span>
+            </h1>
+        </div>
+        <nav class="hidden md:flex gap-8 font-medium text-sm text-gray-400">
+            <a href="/dashboard" class="hover:text-white transition-colors relative group">Dashboard
+                <span
+                    class="absolute -bottom-2 left-0 w-0 h-[2px] bg-neon-cyan transition-all group-hover:w-full duration-300"></span>
+            </a>
+            <a href="/" class="hover:text-white transition-colors relative group">Telemetry
+                <span
+                    class="absolute -bottom-2 left-0 w-0 h-[2px] bg-neon-cyan transition-all group-hover:w-full duration-300"></span>
+            </a>
+            <a href="/fleetmgt" class="text-white relative group">Fleet Mgt
+                <span
+                    class="absolute -bottom-2 left-0 w-full h-[2px] bg-neon-cyan drop-shadow-[0_0_8px_rgba(0,240,255,0.8)]"></span>
+            </a>
+        </nav>
+        <div class="flex items-center gap-4">
+            <button
+                class="glass-panel px-4 py-2 rounded-xl text-xs font-bold text-neon-cyan flex items-center gap-2 hover:bg-white/5 shadow-[0_0_15px_rgba(0,240,255,0.2)] transition"
+                onclick="toggleModal(true)">
+                <i class="ph-bold ph-plus"></i> Register Asset
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1800px] w-full mx-auto p-6 flex flex-col gap-6">
+        <div class="flex justify-between items-end mb-4">
+            <div>
+                <h2 class="font-display font-bold text-3xl tracking-wide">Asset Management</h2>
+                <p class="text-gray-400 text-sm mt-1">Global fleet status and real-time operational metrics.</p>
+            </div>
+        </div>
+
+        <!-- Fleet Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="fleet-grid">
+            <!-- Asset Card Template -->
+            <div
+                class="glass-panel p-5 rounded-2xl cab-node border-white/5 bg-gradient-to-br from-white/5 to-transparent">
+                <div class="flex justify-between items-start mb-6">
+                    <div class="w-12 h-12 rounded-xl bg-neon-cyan/10 flex items-center justify-center text-neon-cyan">
+                        <i class="ph-duotone ph-car text-2xl"></i>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <span class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">ID:
+                            ASSET-1024</span>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-green-400 status-pulse text-green-400"></span>
+                            <span class="text-xs font-medium text-green-400">STANDBY</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Type</span>
+                        <span class="text-white font-medium">Type-A (4 Seater)</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Condition</span>
+                        <span class="text-white font-medium">Excellent</span>
+                    </div>
+                    <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden mt-2">
+                        <div class="bg-neon-cyan h-full w-[85%]" style="box-shadow: 0 0 10px #00f0ff80"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-gray-500 uppercase mt-1">
+                        <span>Range Compliance</span>
+                        <span>85%</span>
+                    </div>
+                </div>
+                <button
+                    class="w-full mt-6 py-2.5 rounded-xl border border-white/10 text-xs font-bold hover:bg-white/5 hover:border-neon-cyan transition text-gray-400 hover:text-white"
+                    onclick="window.location.href='/dashboard'">
+                    View Systems
+                </button>
+            </div>
+
+            <!-- More Asset Cards (Mocking) -->
+            <div
+                class="glass-panel p-5 rounded-2xl cab-node border-white/5 bg-gradient-to-br from-white/5 to-transparent">
+                <div class="flex justify-between items-start mb-6">
+                    <div
+                        class="w-12 h-12 rounded-xl bg-neon-purple/10 flex items-center justify-center text-neon-purple">
+                        <i class="ph-duotone ph-bus text-2xl"></i>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <span class="text-[10px] text-gray-400 uppercase font-bold tracking-widest">ID:
+                            ASSET-2088</span>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <span class="w-2 h-2 rounded-full bg-neon-cyan status-pulse text-neon-cyan"></span>
+                            <span class="text-xs font-medium text-neon-cyan">ON ROUTE</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Type</span>
+                        <span class="text-white font-medium">Type-B (8 Seater)</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Condition</span>
+                        <span class="text-white font-medium">Nominal</span>
+                    </div>
+                    <div class="w-full bg-white/5 h-1.5 rounded-full overflow-hidden mt-2">
+                        <div class="bg-neon-purple h-full w-[62%]" style="box-shadow: 0 0 10px #8b5cf680"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-gray-500 uppercase mt-1">
+                        <span>Range Compliance</span>
+                        <span>62%</span>
+                    </div>
+                </div>
+                <button
+                    class="w-full mt-6 py-2.5 rounded-xl border border-white/10 text-xs font-bold hover:bg-white/5 hover:border-neon-purple transition text-gray-400 hover:text-white"
+                    onclick="window.location.href='/'">
+                    Telemetry Live
+                </button>
+            </div>
+
+            <!-- Add Vehicle Ghost Card -->
+            <div class="glass-panel p-5 rounded-2xl cab-node border-white/5 bg-transparent border-[1.5px] border-dashed hover:border-neon-cyan hover:bg-neon-cyan/5 cursor-pointer transition-all group flex flex-col justify-center items-center min-h-[280px]"
+                onclick="toggleModal(true)">
+                <div
+                    class="w-16 h-16 rounded-full bg-white/5 group-hover:bg-neon-cyan/20 flex items-center justify-center text-gray-500 group-hover:text-neon-cyan transition-all mb-4 shadow-[0_0_15px_transparent] group-hover:shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+                    <i class="ph-bold ph-plus text-3xl"></i>
+                </div>
+                <h4 class="font-display font-bold text-lg text-gray-300 group-hover:text-white transition-colors">
+                    Register Asset</h4>
+                <p class="text-xs text-gray-500 mt-2 text-center max-w-[80%] group-hover:text-gray-300">Deploy a new
+                    vehicle into the routing matrix.</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="register-modal"
+        class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div
+            class="glass-panel w-full max-w-md p-8 rounded-3xl border-neon-cyan/20 shadow-[0_0_50px_rgba(0,240,255,0.1)]">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-display font-bold text-2xl text-white">Register Asset</h3>
+                <button onclick="toggleModal(false)" class="text-gray-400 hover:text-white transition">
+                    <i class="ph-bold ph-x text-xl"></i>
+                </button>
+            </div>
+            <form id="asset-form" class="space-y-4">
+                <div>
+                    <label class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1.5 block">Vehicle
+                        Number</label>
+                    <input type="text" id="v_number" placeholder="EX: MH-12-AB-1234" required
+                        class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-neon-cyan outline-none transition text-white">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label
+                            class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1.5 block">Type</label>
+                        <select id="v_type"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-neon-cyan outline-none transition text-white">
+                            <option value="A">Type-A (4 Seater)</option>
+                            <option value="B">Type-B (8 Seater)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label
+                            class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1.5 block">Status</label>
+                        <select id="v_status"
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-neon-cyan outline-none transition text-white">
+                            <option value="idle">Idle</option>
+                            <option value="active">Active</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1.5 block">Eff
+                            (km/l)</label>
+                        <input type="number" id="v_eff" value="15" step="0.1" required
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-neon-cyan outline-none transition text-white">
+                    </div>
+                    <div>
+                        <label class="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1.5 block">Tank
+                            (L)</label>
+                        <input type="number" id="v_tank" value="50" step="1" required
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-neon-cyan outline-none transition text-white">
+                    </div>
+                </div>
+                <button type="submit"
+                    class="w-full mt-4 bg-gradient-to-r from-neon-cyan to-neon-purple py-3.5 rounded-xl font-bold text-sm text-white shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:shadow-[0_0_30px_rgba(0,240,255,0.5)] transition-all">
+                    Initialize Deployment
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const init3D = () => {
+            VANTA.NET({
+                el: "#background",
+                mouseControls: true,
+                touchControls: true,
+                gyroControls: false,
+                minHeight: 200.00,
+                minWidth: 200.00,
+                scale: 1.00,
+                scaleMobile: 1.00,
+                color: 0x00f0ff,
+                backgroundColor: 0x030712,
+                points: 15.00,
+                maxDistance: 20.00,
+                spacing: 20.00,
+                showDots: true
+            });
+        };
+
+        const toggleModal = (show) => {
+            const modal = document.getElementById('register-modal');
+            modal.classList.toggle('hidden', !show);
+            if (show) {
+                gsap.fromTo("#register-modal > div", { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "back.out(1.7)" });
+            }
+        };
+
+        const showToast = (msg) => {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        };
+
+        // Handle Asset Registration
+        document.getElementById('asset-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const data = {
+                vehicle_number: document.getElementById('v_number').value,
+                capacity: document.getElementById('v_type').value === 'A' ? 4 : 8,
+                fuel_efficiency: parseFloat(document.getElementById('v_eff').value),
+                tank_capacity: parseFloat(document.getElementById('v_tank').value),
+                status: document.getElementById('v_status').value
+            };
+
+            try {
+                const response = await fetch('/fleet/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (response.ok) {
+                    showToast('ASSET DEPLOYED SUCCESSFULLY');
+                    toggleModal(false);
+                    e.target.reset();
+                    // Optional: Refresh grid
+                } else {
+                    showToast('REGISTRATION FAILED');
+                }
+            } catch (err) {
+                showToast('COMMUNICATION ERROR');
+            }
+        };
+
+        window.onload = init3D;
+    </script>
+</body>
+
+</html>
