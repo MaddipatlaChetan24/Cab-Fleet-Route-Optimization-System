@@ -14,6 +14,6 @@ COPY main.py .
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 
-EXPOSE 8000
-
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 4
+# Railway dynamically assigns a port. 
+# We use the shell form of CMD to ensure $PORT is expanded correctly.
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080} --workers 4
