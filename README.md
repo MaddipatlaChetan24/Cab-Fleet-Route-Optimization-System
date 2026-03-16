@@ -1,14 +1,86 @@
-# Fleet Route Optimization Backend
+# 🚖 Cab Fleet Route Optimization System
 
-Enterprise-grade SaaS backend for AI cab fleet route optimization.
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![OR-Tools](https://img.shields.io/badge/Google--OR--Tools-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/optimization)
 
-## Tech Stack
-- Python 3.11+
-- FastAPI
-- Pydantic v2
-- Uvicorn
+An enterprise-grade AI-powered SaaS solution for optimizing cab fleet operations. This system leverages advanced algorithms and machine learning to solve Vehicle Routing Problems (VRP), predict demand, and enhance driver safety.
 
-## Run via Docker
+## 🚀 Key Features
+
+- **Advanced Route Optimization**: Utilizing Google OR-Tools to solve complex VRP with capacity constraints and time windows.
+- **AI Demand Prediction**: ML-based prediction of future cab demand based on historical data and temporal patterns.
+- **Risk Detection Service**: Real-time analysis of driver telemetry to identify high-risk behaviors and improve safety.
+- **Clustering & Service Management**: Intelligent vehicle-to-region assignment using clustering algorithms.
+- **Interactive Dashboards**: Real-time visualization of fleet status, telemetry, and optimization results.
+- **Scalable Backend**: Built with FastAPI for high-performance asynchronous API handling.
+
+## 🛠 Tech Stack
+
+- **Backend**: Python 3.11+, FastAPI, Pydantic v2
+- **Optimization Engine**: Google OR-Tools
+- **Machine Learning**: Scikit-learn, NumPy, Pandas, SciPy
+- **Frontend**: HTML5, Vanilla CSS, JavaScript (Dashboard & Fleet Management)
+- **Deployment**: Docker, Vercel (API)
+
+## 📁 Project Structure
+
+```text
+.
+├── backend/app/
+│   ├── core/           # Configuration and global exceptions
+│   ├── models/         # Database models
+│   ├── schemas/        # Pydantic validation schemas
+│   ├── router/         # API Route handlers (Fleet, Optimization, VRP)
+│   └── services/       # Core business logic (ML Predictors, VRP Solvers)
+├── frontend/           # UI components (Index, Dashboard, Fleet Management)
+├── main.py             # FastAPI entry point
+├── Dockerfile          # Containerization config
+├── requirements.txt    # Python dependencies
+└── vercel.json         # Vercel deployment config
+```
+
+## ⚙️ Installation & Setup
+
+### Local Development
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/MaddipatlaChetan24/Cab-Fleet-Route-Optimization-System.git
+   cd Cab-Fleet-Route-Optimization-System
+   ```
+
+2. **Create a virtual environment**:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Run the server**:
+   ```bash
+   uvicorn main:app --reload
+   ```
+   Access the API docs at `http://localhost:8000/docs`.
+
+### Using Docker
+
 ```bash
-docker build -t fleet-backend .
-docker run -p 8000:8000 fleet-backend
+docker build -t fleet-optimization .
+docker run -p 8000:8000 fleet-optimization
+```
+
+## 🔌 API Endpoints (Highlights)
+
+- `GET /api/v1/predict/demand`: Predict future demand levels.
+- `POST /api/v1/optimize`: Run route optimization for a set of vehicles and orders.
+- `POST /api/v1/risk/analyze`: Analyze driver telemetry for safety risk scores.
+- `GET /dashboard`: Main monitoring dashboard.
+
+---
+Developed as part of the Cab Fleet Route Optimization System project.
