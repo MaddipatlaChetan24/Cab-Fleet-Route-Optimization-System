@@ -22,7 +22,7 @@ An enterprise-grade AI-powered SaaS solution for optimizing cab fleet operations
 - **Optimization Engine**: Google OR-Tools
 - **Machine Learning**: Scikit-learn, NumPy, Pandas, SciPy
 - **Frontend**: HTML5, Vanilla CSS, JavaScript (Dashboard & Fleet Management)
-- **Deployment**: Docker, Vercel (API)
+- **Deployment**: Docker, Railway
 
 ## 📁 Project Structure
 
