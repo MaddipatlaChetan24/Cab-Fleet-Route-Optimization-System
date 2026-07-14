@@ -1,4 +1,4 @@
-# 🚖 Cab Fleet Route Optimization System
+# Cab Fleet Route Optimization System
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org/)
@@ -7,7 +7,7 @@
 
 An enterprise-grade AI-powered SaaS solution for optimizing cab fleet operations. This system leverages advanced algorithms and machine learning to solve Vehicle Routing Problems (VRP), predict demand, and enhance driver safety.
 
-## 🚀 Key Features
+## Key Features
 
 - **Advanced Route Optimization**: Utilizing Google OR-Tools to solve complex VRP with capacity constraints and time windows.
 - **AI Demand Prediction**: ML-based prediction of future cab demand based on historical data and temporal patterns.
@@ -16,7 +16,7 @@ An enterprise-grade AI-powered SaaS solution for optimizing cab fleet operations
 - **Interactive Dashboards**: Real-time visualization of fleet status, telemetry, and optimization results.
 - **Scalable Backend**: Built with FastAPI for high-performance asynchronous API handling.
 
-## 🛠 Tech Stack
+##  Tech Stack
 
 - **Backend**: Python 3.11+, FastAPI, Pydantic v2
 - **Optimization Engine**: Google OR-Tools
@@ -24,7 +24,7 @@ An enterprise-grade AI-powered SaaS solution for optimizing cab fleet operations
 - **Frontend**: HTML5, Vanilla CSS, JavaScript (Dashboard & Fleet Management)
 - **Deployment**: Docker, Railway
 
-## 📁 Project Structure
+##  Project Structure
 
 ```text
 .
@@ -41,7 +41,7 @@ An enterprise-grade AI-powered SaaS solution for optimizing cab fleet operations
 └── vercel.json         # Vercel deployment config
 ```
 
-## ⚙️ Installation & Setup
+##  Installation & Setup
 
 ### Local Development
 
@@ -75,7 +75,7 @@ docker build -t fleet-optimization .
 docker run -p 8000:8000 fleet-optimization
 ```
 
-## 🔌 API Endpoints (Highlights)
+##  API Endpoints (Highlights)
 
 - `GET /api/v1/predict/demand`: Predict future demand levels.
 - `POST /api/v1/optimize`: Run route optimization for a set of vehicles and orders.
