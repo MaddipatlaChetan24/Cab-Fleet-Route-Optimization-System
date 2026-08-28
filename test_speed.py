@@ -20,5 +20,4 @@ try:
     end = time.time()
     print("Status:", res.status_code)
     print(f"Time Taken: {end - start:.2f} seconds")
-except Exception as e:
-    print("Error:", e)
+
