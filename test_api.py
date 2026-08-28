@@ -18,5 +18,4 @@ try:
         print("Response:", json.dumps(res.json(), indent=2))
     except:
         print("Response text:", res.text)
-except Exception as e:
-    print("Error:", e)
+
