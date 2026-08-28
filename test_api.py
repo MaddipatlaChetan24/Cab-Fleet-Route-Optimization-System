@@ -14,5 +14,9 @@ payload = {
 try:
     res = requests.post("http://localhost:8000/api/v1/vrp/optimize", json=payload)
     print("Status:", res.status_code)
-    
-
+    try:
+        print("Response:", json.dumps(res.json(), indent=2))
+    except:
+        print("Response text:", res.text)
+except Exception as e:
+    print("Error:", e)
