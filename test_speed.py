@@ -14,10 +14,4 @@ payload = {
     ]
 }
 
-start = time.time()
-try:
-    res = requests.post("http://localhost:8000/api/v1/vrp/optimize", json=payload)
-    end = time.time()
-    print("Status:", res.status_code)
-    print(f"Time Taken: {end - start:.2f} seconds")
 
