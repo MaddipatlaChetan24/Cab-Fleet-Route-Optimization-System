@@ -1,9 +1,5 @@
 # Cab Fleet Route Optimization System
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org/)
-[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![OR-Tools](https://img.shields.io/badge/Google--OR--Tools-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://developers.google.com/optimization)
 
 An enterprise-grade AI-powered SaaS solution for optimizing cab fleet operations. This system leverages advanced algorithms and machine learning to solve Vehicle Routing Problems (VRP), predict demand, and enhance driver safety.
 
